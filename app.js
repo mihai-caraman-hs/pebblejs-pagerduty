@@ -65,6 +65,7 @@ var textfield;
 var ajax = require('ajax');
 var count = -1;
 var interval;
+var vibrate_interval;
 
 // Query Incidents
 QueryIncidents = function(all) {
@@ -118,6 +119,7 @@ showStatusCard = function(status) {
 AckIncident = function (IncId) {
   console.log("Ack incident:");
   console.log(IncId);
+  clearInterval(vibrate_interval);
   ajax(
     {
       url: 'https://'+subdomain+'.pagerduty.com/api/v1/incidents/'+IncId+'/acknowledge',
@@ -215,25 +217,29 @@ showIncidentPage = function (Host, Service, State, Id) {
   page[Id].title(Host);
   page[Id].body(Service + " " + State);
   page[Id].show();
+  vibrate_interval = window.setInterval(function () {Vibe.vibrate('short')}, 3000);
   page[Id].on('click', 'up', function() {
     showIncidentMenu(Id);    
   });
 }
 
 getHostServiceState = function (data) {
+  var incidents = data.incidents;
   for (i=0; i<data.total; i++) {
-    if (data.incidents[i].trigger_summary_data.HOSTNAME) {
-      Host = data.incidents[i].trigger_summary_data.HOSTNAME
-      Service = data.incidents[i].trigger_summary_data.SERVICEDESC
-      State = data.incidents[i].trigger_summary_data.SERVICESTATE
+    var incident = incidents[i];
+    var summary = incident.trigger_summary_data;
+    if (summary.HOSTNAME) {
+      Host = summary.HOSTNAME
+      Service = summary.SERVICEDESC
+      State = summary.SERVICESTATE
     } else {
-      Host = data.incidents[i].service.name;
-      Service = data.incidents[i].service.description;
-      State = data.incidents[i].trigger_summary_data.subject
+      var service = incident.service;
+      Host = service.name;
+      Service = service.description;
+      State = summary.subject
     }
-    Id = data.incidents[i].id
     // show page
-    showIncidentPage(Host, Service, State, Id);
+    showIncidentPage(Host, Service, State, incident.id);
     clearInterval(interval);
     // set 30 seconds
     interval = window.setInterval(function () { QueryIncidents(0) }, 30000);
